@@ -290,17 +290,27 @@ jobs:
         $submissionData = Get-ApplicationSubmission -AppId $appId -SubmissionId $submissionId
 
         # Check if applicationCategory is NotSet and fix it
-        if ($submissionData.applicationCategory -eq "NotSet") {
-          Write-Host "WARNING: applicationCategory is NotSet, setting to Productivity..."
+        if ($submissionData.applicationCategory -eq "NotSet" -or [string]::IsNullOrEmpty($submissionData.applicationCategory)) {
+          Write-Host "WARNING: applicationCategory is '$($submissionData.applicationCategory)', setting to Productivity..."
           $submissionData.applicationCategory = "Productivity"
         }
 
         Write-Host "Application Category: $($submissionData.applicationCategory)"
         Write-Host "Pricing: $($submissionData.pricing.priceId)"
 
-        # Save the submission data to a temp file
+        # Save the submission data to a temp file WITH the corrected category
         $tempSubmissionPath = "temp-submission.json"
-        $submissionData | ConvertTo-Json -Depth 10 | Out-File $tempSubmissionPath -Encoding utf8
+        $jsonContent = $submissionData | ConvertTo-Json -Depth 10
+
+        # Double-check the JSON contains Productivity before saving
+        Write-Host "Verifying JSON contains correct category..."
+        if ($jsonContent -match '"applicationCategory":\s*"NotSet"') {
+          Write-Host "ERROR: JSON still contains NotSet, manual fix needed"
+          $jsonContent = $jsonContent -replace '"applicationCategory":\s*"NotSet"', '"applicationCategory": "Productivity"'
+          Write-Host "Applied string replacement fix"
+        }
+
+        $jsonContent | Out-File $tempSubmissionPath -Encoding utf8
 
         Write-Host "Uploading MSIX package..."
         try {

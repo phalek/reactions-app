@@ -278,22 +278,18 @@ jobs:
           exit 1
         }
 
-        # Read submission configuration
-        Write-Host "Loading submission metadata from store-submission.json..."
-        $submissionData = Get-Content "store-submission.json" -Raw | ConvertFrom-Json
-
         # Create new submission
         Write-Host "Creating new submission..."
+        Write-Host "Note: Metadata (title, description, pricing) should be pre-configured in Partner Center"
         try {
           $submission = New-ApplicationSubmission -AppId $appId -Force
 
-          Write-Host "Configuring submission with metadata (Pricing: Free, Availability: Immediate, Language: English)..."
-          # Update submission with package AND metadata
+          Write-Host "Uploading MSIX package..."
+          # Update submission with package ONLY - metadata stays from Partner Center
           $submission = Update-ApplicationSubmission `
             -AppId $appId `
             -SubmissionId $submission.id `
-            -PackagePath $msixFile.FullName `
-            -SubmissionDataPath "store-submission.json"
+            -PackagePath $msixFile.FullName
 
           Write-Host "Committing submission..."
           Complete-ApplicationSubmission -AppId $appId -SubmissionId $submission.id

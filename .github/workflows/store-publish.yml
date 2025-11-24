@@ -162,8 +162,8 @@ jobs:
 
     - name: Build MSIX package
       run: |
-        # Find MakeAppx.exe
-        $makeappx = Get-ChildItem -Path "C:\Program Files (x86)\Windows Kits\10\bin" -Filter "makeappx.exe" -Recurse | Select-Object -First 1
+        # Find MakeAppx.exe (x64 version)
+        $makeappx = Get-ChildItem -Path "C:\Program Files (x86)\Windows Kits\10\bin" -Filter "makeappx.exe" -Recurse | Where-Object { $_.FullName -match "\\x64\\" } | Select-Object -First 1
 
         if ($makeappx) {
           $version = "${{ steps.get_version.outputs.VERSION }}"
@@ -181,8 +181,8 @@ jobs:
 
     - name: Sign MSIX package (for testing)
       run: |
-        # Find SignTool.exe
-        $signtool = Get-ChildItem -Path "C:\Program Files (x86)\Windows Kits\10\bin" -Filter "signtool.exe" -Recurse | Select-Object -First 1
+        # Find SignTool.exe (x64 version)
+        $signtool = Get-ChildItem -Path "C:\Program Files (x86)\Windows Kits\10\bin" -Filter "signtool.exe" -Recurse | Where-Object { $_.FullName -match "\\x64\\" } | Select-Object -First 1
 
         if ($signtool) {
           & $signtool.FullName sign /fd SHA256 /a /f TestCert.pfx /p "TestPassword123" $env:MSIX_PATH

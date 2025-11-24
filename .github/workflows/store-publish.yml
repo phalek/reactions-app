@@ -278,18 +278,24 @@ jobs:
           exit 1
         }
 
+        # Read submission configuration
+        Write-Host "Loading submission metadata from store-submission.json..."
+        $submissionData = Get-Content "store-submission.json" -Raw | ConvertFrom-Json
+
         # Create new submission
         Write-Host "Creating new submission..."
         try {
           $submission = New-ApplicationSubmission -AppId $appId -Force
 
-          Write-Host "Uploading package..."
-          # Update submission with package
+          Write-Host "Configuring submission with metadata (Pricing: Free, Availability: Immediate, Language: English)..."
+          # Update submission with package AND metadata
           $submission = Update-ApplicationSubmission `
             -AppId $appId `
             -SubmissionId $submission.id `
             -PackagePath $msixFile.FullName `
-            -UpdateListings $false
+            -SubmissionDataPath "store-submission.json" `
+            -UpdateListings $true `
+            -AddPackages
 
           Write-Host "Committing submission..."
           Complete-ApplicationSubmission -AppId $appId -SubmissionId $submission.id

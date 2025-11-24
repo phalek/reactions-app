@@ -127,24 +127,13 @@ jobs:
         # Copy executable
         Copy-Item "dist\${{ env.PACKAGE_NAME }}.exe" -Destination "msix\${{ env.PACKAGE_NAME }}.exe"
 
-        # Create placeholder assets (replace with actual assets later)
-        # For now, create empty files - you'll need to add real images
-        $assetSizes = @{
-          "Square44x44Logo.png" = "44x44"
-          "Square150x150Logo.png" = "150x150"
-          "Wide310x150Logo.png" = "310x150"
-          "StoreLogo.png" = "50x50"
-          "SplashScreen.png" = "620x300"
-        }
-
-        foreach ($asset in $assetSizes.Keys) {
-          $path = "msix\Assets\$asset"
-          if (-not (Test-Path $path)) {
-            # Create a minimal valid PNG (1x1 transparent pixel)
-            # In production, replace with actual assets
-            $bytes = [System.Convert]::FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==")
-            [System.IO.File]::WriteAllBytes($path, $bytes)
-          }
+        # Copy real assets from repository
+        if (Test-Path "assets\store") {
+          Copy-Item "assets\store\*" -Destination "msix\Assets\" -Force
+          Write-Host "✓ Copied store assets from assets/store/"
+        } else {
+          Write-Error "Assets directory not found. Please create assets/store/ with required PNGs."
+          exit 1
         }
       shell: pwsh
 

@@ -272,8 +272,11 @@ jobs:
         $appId = "${{ secrets.STORE_APP_ID }}"
         Write-Host "Submitting to Store with App ID: $appId"
 
-        # Copy store submission JSON to working directory
-        Copy-Item "store-submission.json" -Destination "." -Force
+        # Verify store submission JSON exists
+        if (-not (Test-Path "store-submission.json")) {
+          Write-Error "store-submission.json not found!"
+          exit 1
+        }
 
         # Create new submission
         Write-Host "Creating new submission..."

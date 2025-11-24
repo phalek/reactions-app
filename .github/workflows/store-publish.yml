@@ -272,24 +272,26 @@ jobs:
         $appId = "${{ secrets.STORE_APP_ID }}"
         Write-Host "Submitting to Store with App ID: $appId"
 
-        # Verify store submission JSON exists
-        if (-not (Test-Path "store-submission.json")) {
-          Write-Error "store-submission.json not found!"
-          exit 1
-        }
-
         # Create new submission
         Write-Host "Creating new submission..."
-        Write-Host "Note: Metadata (title, description, pricing) should be pre-configured in Partner Center"
+        Write-Host "Note: This will clone existing metadata from Partner Center"
         try {
           $submission = New-ApplicationSubmission -AppId $appId -Force
 
-          Write-Host "Uploading MSIX package..."
-          # Update submission with package ONLY - metadata stays from Partner Center
+          Write-Host "Getting submission data..."
+          $submissionData = Get-ApplicationSubmission -AppId $appId -SubmissionId $submission.id
+
+          # Save the full submission data to a temp file
+          $tempSubmissionPath = "temp-submission.json"
+          $submissionData | ConvertTo-Json -Depth 10 | Out-File $tempSubmissionPath -Encoding utf8
+
+          Write-Host "Uploading MSIX package with preserved metadata..."
+          # Update submission with package - this will preserve the cloned metadata
           $submission = Update-ApplicationSubmission `
             -AppId $appId `
             -SubmissionId $submission.id `
-            -PackagePath $msixFile.FullName
+            -PackagePath $msixFile.FullName `
+            -SubmissionDataPath $tempSubmissionPath
 
           Write-Host "Committing submission..."
           Complete-ApplicationSubmission -AppId $appId -SubmissionId $submission.id

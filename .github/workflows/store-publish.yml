@@ -293,9 +293,7 @@ jobs:
             -AppId $appId `
             -SubmissionId $submission.id `
             -PackagePath $msixFile.FullName `
-            -SubmissionDataPath "store-submission.json" `
-            -UpdateListings $true `
-            -AddPackages
+            -SubmissionDataPath "store-submission.json"
 
           Write-Host "Committing submission..."
           Complete-ApplicationSubmission -AppId $appId -SubmissionId $submission.id

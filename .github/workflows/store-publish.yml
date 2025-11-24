@@ -312,36 +312,39 @@ jobs:
 
         $jsonContent | Out-File $tempSubmissionPath -Encoding utf8
 
-        # DEBUG: Verify the file actually contains Productivity
-        Write-Host ""
-        Write-Host "=== VERIFYING TEMP FILE CONTENTS ==="
-        $verifyContent = Get-Content $tempSubmissionPath -Raw
-        Write-Host "File size: $($verifyContent.Length) bytes"
+        Write-Host "Creating submission package with New-SubmissionPackage..."
+        # Use New-SubmissionPackage to create a proper package structure
+        # This creates a .json and .zip file pair that StoreBroker expects
+        $packageOutput = "submission-package"
+        New-SubmissionPackage `
+          -ConfigPath $tempSubmissionPath `
+          -AppxPath $msixFile.FullName `
+          -OutPath "." `
+          -OutName $packageOutput `
+          -Verbose
 
-        # Check what's actually in the file
-        if ($verifyContent -match '"applicationCategory":\s*"([^"]+)"') {
-          Write-Host "Found in file: applicationCategory = '$($Matches[1])'"
-        } else {
-          Write-Host "ERROR: applicationCategory not found in file!"
+        Write-Host "Submission package created: $packageOutput.json and $packageOutput.zip"
+
+        # Verify the package files were created
+        if (-not (Test-Path "$packageOutput.json")) {
+          Write-Error "Package JSON not found: $packageOutput.json"
+          exit 1
+        }
+        if (-not (Test-Path "$packageOutput.zip")) {
+          Write-Error "Package ZIP not found: $packageOutput.zip"
+          exit 1
         }
 
-        # Print first 30 lines of the file
-        Write-Host ""
-        Write-Host "First 30 lines of temp-submission.json:"
-        Get-Content $tempSubmissionPath | Select-Object -First 30 | ForEach-Object { Write-Host $_ }
-        Write-Host "=== END VERIFICATION ==="
-        Write-Host ""
-
-        Write-Host "Uploading MSIX package..."
+        Write-Host "Uploading submission package to Microsoft Store..."
         try {
-          # Update submission with package
+          # Update submission with the properly formatted package
           # NOTE: Must include -UpdateAppProperties to apply applicationCategory from JSON
-          # NOTE: Use -ReplacePackages when providing -PackagePath directly (not -AddPackages)
+          # NOTE: PackagePath must point to the .zip file created by New-SubmissionPackage
           $submission = Update-ApplicationSubmission `
             -AppId $appId `
             -SubmissionId $submissionId `
-            -PackagePath $msixFile.FullName `
-            -SubmissionDataPath $tempSubmissionPath `
+            -SubmissionDataPath "$packageOutput.json" `
+            -PackagePath "$packageOutput.zip" `
             -UpdateAppProperties `
             -UpdateListings `
             -UpdatePublishModeAndVisibility `

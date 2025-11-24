@@ -233,6 +233,9 @@ jobs:
       run: |
         $configPath = "$env:USERPROFILE\.StoreBroker"
 
+        # Create StoreBroker directory if it doesn't exist
+        New-Item -Path $configPath -ItemType Directory -Force | Out-Null
+
         $config = @{
           tenantId = "${{ secrets.AZURE_TENANT_ID }}"
           clientId = "${{ secrets.AZURE_CLIENT_ID }}"

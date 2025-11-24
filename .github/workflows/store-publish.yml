@@ -312,6 +312,26 @@ jobs:
 
         $jsonContent | Out-File $tempSubmissionPath -Encoding utf8
 
+        # DEBUG: Verify the file actually contains Productivity
+        Write-Host ""
+        Write-Host "=== VERIFYING TEMP FILE CONTENTS ==="
+        $verifyContent = Get-Content $tempSubmissionPath -Raw
+        Write-Host "File size: $($verifyContent.Length) bytes"
+
+        # Check what's actually in the file
+        if ($verifyContent -match '"applicationCategory":\s*"([^"]+)"') {
+          Write-Host "Found in file: applicationCategory = '$($Matches[1])'"
+        } else {
+          Write-Host "ERROR: applicationCategory not found in file!"
+        }
+
+        # Print first 30 lines of the file
+        Write-Host ""
+        Write-Host "First 30 lines of temp-submission.json:"
+        Get-Content $tempSubmissionPath | Select-Object -First 30 | ForEach-Object { Write-Host $_ }
+        Write-Host "=== END VERIFICATION ==="
+        Write-Host ""
+
         Write-Host "Uploading MSIX package..."
         try {
           # Update submission with package

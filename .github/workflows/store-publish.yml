@@ -272,24 +272,42 @@ jobs:
         $appId = "${{ secrets.STORE_APP_ID }}"
         Write-Host "Submitting to Store with App ID: $appId"
 
-        # Create new submission
-        Write-Host "Creating new submission..."
-        Write-Host "Note: This will clone existing metadata from Partner Center"
+        # Get app info to check for pending submission
+        Write-Host "Checking for existing submission..."
+        $app = Get-Application -AppId $appId
+
+        # Check if there's already a pending submission
+        if ($app.pendingApplicationSubmission) {
+          Write-Host "Found existing pending submission, using it..."
+          $submissionId = $app.pendingApplicationSubmission.id
+        } else {
+          Write-Host "No pending submission found, creating new one..."
+          $newSubmission = New-ApplicationSubmission -AppId $appId -Force
+          $submissionId = $newSubmission.id
+        }
+
+        Write-Host "Getting submission data (ID: $submissionId)..."
+        $submissionData = Get-ApplicationSubmission -AppId $appId -SubmissionId $submissionId
+
+        # Check if applicationCategory is NotSet and fix it
+        if ($submissionData.applicationCategory -eq "NotSet") {
+          Write-Host "WARNING: applicationCategory is NotSet, setting to Productivity..."
+          $submissionData.applicationCategory = "Productivity"
+        }
+
+        Write-Host "Application Category: $($submissionData.applicationCategory)"
+        Write-Host "Pricing: $($submissionData.pricing.priceId)"
+
+        # Save the submission data to a temp file
+        $tempSubmissionPath = "temp-submission.json"
+        $submissionData | ConvertTo-Json -Depth 10 | Out-File $tempSubmissionPath -Encoding utf8
+
+        Write-Host "Uploading MSIX package..."
         try {
-          $submission = New-ApplicationSubmission -AppId $appId -Force
-
-          Write-Host "Getting submission data..."
-          $submissionData = Get-ApplicationSubmission -AppId $appId -SubmissionId $submission.id
-
-          # Save the full submission data to a temp file
-          $tempSubmissionPath = "temp-submission.json"
-          $submissionData | ConvertTo-Json -Depth 10 | Out-File $tempSubmissionPath -Encoding utf8
-
-          Write-Host "Uploading MSIX package with preserved metadata..."
-          # Update submission with package - this will preserve the cloned metadata
+          # Update submission with package
           $submission = Update-ApplicationSubmission `
             -AppId $appId `
-            -SubmissionId $submission.id `
+            -SubmissionId $submissionId `
             -PackagePath $msixFile.FullName `
             -SubmissionDataPath $tempSubmissionPath
 

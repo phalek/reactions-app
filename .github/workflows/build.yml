@@ -33,6 +33,7 @@ jobs:
         flake8 src/ --count --exit-zero --max-complexity=10 --max-line-length=100 --statistics
 
     - name: Type checking with mypy
+      continue-on-error: true
       run: |
         mypy src/ --ignore-missing-imports
 

@@ -1,0 +1,294 @@
+name: Publish to Microsoft Store
+
+on:
+  push:
+    tags:
+      - 'store-v*'  # Trigger on tags like store-v1.0.0
+  workflow_dispatch:  # Allow manual trigger
+    inputs:
+      version:
+        description: 'Version number (e.g., 1.0.0.0)'
+        required: true
+        default: '1.0.0.0'
+
+permissions:
+  contents: write
+
+env:
+  PYTHON_VERSION: '3.10'
+  PACKAGE_NAME: 'CameraReactions'
+  PUBLISHER_NAME: 'CN=YourPublisherName'  # Replace with your actual publisher name from Partner Center
+
+jobs:
+  build-msix:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pyinstaller
+
+    - name: Build executable with PyInstaller
+      run: |
+        pyinstaller --name ${{ env.PACKAGE_NAME }} `
+          --windowed `
+          --onefile `
+          --hidden-import=mediapipe `
+          --hidden-import=cv2 `
+          src/main.py
+      shell: pwsh
+
+    - name: Get version from tag or input
+      id: get_version
+      run: |
+        if ("${{ github.event_name }}" -eq "workflow_dispatch") {
+          $version = "${{ github.event.inputs.version }}"
+        } else {
+          $tag = "${{ github.ref_name }}"
+          $version = $tag -replace 'store-v', ''
+          $version = "$version.0"
+        }
+        echo "VERSION=$version" >> $env:GITHUB_OUTPUT
+        echo "Version: $version"
+      shell: pwsh
+
+    - name: Create AppxManifest.xml
+      run: |
+        $version = "${{ steps.get_version.outputs.VERSION }}"
+        $manifest = @"
+        <?xml version="1.0" encoding="utf-8"?>
+        <Package
+          xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+          xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+          xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities">
+
+          <Identity
+            Name="${{ env.PACKAGE_NAME }}"
+            Publisher="${{ env.PUBLISHER_NAME }}"
+            Version="$version" />
+
+          <Properties>
+            <DisplayName>Camera Reactions</DisplayName>
+            <PublisherDisplayName>Your Display Name</PublisherDisplayName>
+            <Logo>Assets\StoreLogo.png</Logo>
+            <Description>Add animated reactions to video calls with hand gestures</Description>
+          </Properties>
+
+          <Dependencies>
+            <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.22000.0" />
+          </Dependencies>
+
+          <Resources>
+            <Resource Language="en-us" />
+          </Resources>
+
+          <Applications>
+            <Application Id="${{ env.PACKAGE_NAME }}" Executable="${{ env.PACKAGE_NAME }}.exe" EntryPoint="Windows.FullTrustApplication">
+              <uap:VisualElements
+                DisplayName="Camera Reactions"
+                Description="Gesture-controlled animated effects for video calls"
+                BackgroundColor="transparent"
+                Square150x150Logo="Assets\Square150x150Logo.png"
+                Square44x44Logo="Assets\Square44x44Logo.png">
+                <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" />
+                <uap:SplashScreen Image="Assets\SplashScreen.png" />
+              </uap:VisualElements>
+            </Application>
+          </Applications>
+
+          <Capabilities>
+            <Capability Name="internetClient" />
+            <DeviceCapability Name="webcam" />
+            <DeviceCapability Name="microphone" />
+            <rescap:Capability Name="runFullTrust" />
+          </Capabilities>
+        </Package>
+        "@
+
+        New-Item -Path "msix" -ItemType Directory -Force
+        $manifest | Out-File -FilePath "msix\AppxManifest.xml" -Encoding utf8
+      shell: pwsh
+
+    - name: Create MSIX package structure
+      run: |
+        # Create directory structure
+        New-Item -Path "msix\Assets" -ItemType Directory -Force
+
+        # Copy executable
+        Copy-Item "dist\${{ env.PACKAGE_NAME }}.exe" -Destination "msix\${{ env.PACKAGE_NAME }}.exe"
+
+        # Create placeholder assets (replace with actual assets later)
+        # For now, create empty files - you'll need to add real images
+        $assetSizes = @{
+          "Square44x44Logo.png" = "44x44"
+          "Square150x150Logo.png" = "150x150"
+          "Wide310x150Logo.png" = "310x150"
+          "StoreLogo.png" = "50x50"
+          "SplashScreen.png" = "620x300"
+        }
+
+        foreach ($asset in $assetSizes.Keys) {
+          $path = "msix\Assets\$asset"
+          if (-not (Test-Path $path)) {
+            # Create a minimal valid PNG (1x1 transparent pixel)
+            # In production, replace with actual assets
+            $bytes = [System.Convert]::FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==")
+            [System.IO.File]::WriteAllBytes($path, $bytes)
+          }
+        }
+      shell: pwsh
+
+    - name: Install Windows SDK
+      run: |
+        choco install windows-sdk-10-version-2004-all -y
+      shell: pwsh
+
+    - name: Create self-signed certificate (for testing)
+      run: |
+        $cert = New-SelfSignedCertificate `
+          -Type Custom `
+          -Subject "${{ env.PUBLISHER_NAME }}" `
+          -KeyUsage DigitalSignature `
+          -FriendlyName "Camera Reactions Test Cert" `
+          -CertStoreLocation "Cert:\CurrentUser\My" `
+          -TextExtension @("2.5.29.37={text}1.3.6.1.5.5.7.3.3", "2.5.29.19={text}")
+
+        $pwd = ConvertTo-SecureString -String "TestPassword123" -Force -AsPlainText
+        Export-PfxCertificate -Cert "Cert:\CurrentUser\My\$($cert.Thumbprint)" `
+          -FilePath "TestCert.pfx" `
+          -Password $pwd
+
+        echo "CERT_THUMBPRINT=$($cert.Thumbprint)" >> $env:GITHUB_ENV
+      shell: pwsh
+
+    - name: Build MSIX package
+      run: |
+        # Find MakeAppx.exe
+        $makeappx = Get-ChildItem -Path "C:\Program Files (x86)\Windows Kits\10\bin" -Filter "makeappx.exe" -Recurse | Select-Object -First 1
+
+        if ($makeappx) {
+          $version = "${{ steps.get_version.outputs.VERSION }}"
+          $outputFile = "${{ env.PACKAGE_NAME }}_${version}_x64.msix"
+
+          & $makeappx.FullName pack /d msix /p $outputFile /o
+
+          echo "MSIX_PATH=$outputFile" >> $env:GITHUB_ENV
+          echo "Created MSIX: $outputFile"
+        } else {
+          Write-Error "MakeAppx.exe not found"
+          exit 1
+        }
+      shell: pwsh
+
+    - name: Sign MSIX package (for testing)
+      run: |
+        # Find SignTool.exe
+        $signtool = Get-ChildItem -Path "C:\Program Files (x86)\Windows Kits\10\bin" -Filter "signtool.exe" -Recurse | Select-Object -First 1
+
+        if ($signtool) {
+          & $signtool.FullName sign /fd SHA256 /a /f TestCert.pfx /p "TestPassword123" $env:MSIX_PATH
+          echo "Signed MSIX package"
+        } else {
+          Write-Error "SignTool.exe not found"
+        }
+      shell: pwsh
+
+    - name: Upload MSIX artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: msix-package
+        path: ${{ env.PACKAGE_NAME }}_*.msix
+        retention-days: 30
+
+    - name: Create GitHub Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: ${{ env.PACKAGE_NAME }}_*.msix
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  submit-to-store:
+    needs: build-msix
+    runs-on: windows-latest
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/store-v')
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Download MSIX artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: msix-package
+
+    - name: Install StoreBroker PowerShell module
+      run: |
+        Install-Module -Name StoreBroker -Force -Scope CurrentUser
+        Import-Module StoreBroker
+      shell: pwsh
+
+    - name: Configure StoreBroker
+      run: |
+        $configPath = "$env:USERPROFILE\.StoreBroker"
+
+        $config = @{
+          tenantId = "${{ secrets.AZURE_TENANT_ID }}"
+          clientId = "${{ secrets.AZURE_CLIENT_ID }}"
+          clientSecret = "${{ secrets.AZURE_CLIENT_SECRET }}"
+        }
+
+        # Store credentials securely
+        $config | ConvertTo-Json | Out-File "$configPath\config.json"
+      shell: pwsh
+      env:
+        AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+        AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+        AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+
+    - name: Submit to Microsoft Store
+      run: |
+        # Authenticate
+        $clientId = "${{ secrets.AZURE_CLIENT_ID }}"
+        $clientSecret = "${{ secrets.AZURE_CLIENT_SECRET }}"
+        $tenantId = "${{ secrets.AZURE_TENANT_ID }}"
+
+        # Get the MSIX file
+        $msixFile = Get-ChildItem -Filter "*.msix" | Select-Object -First 1
+
+        # Submit to store
+        # Note: This requires StoreBroker module and proper authentication
+        # Update with your actual App ID from Partner Center
+        $appId = "${{ secrets.STORE_APP_ID }}"
+
+        # Create submission package
+        $submissionParams = @{
+          AppId = $appId
+          SubmissionDataPath = "store-submission.json"
+          PackagePath = $msixFile.FullName
+          AutoCommit = $true
+        }
+
+        # Submit (uncomment when ready to actually submit)
+        # Update-ApplicationSubmission @submissionParams
+
+        Write-Host "MSIX package ready for submission: $($msixFile.Name)"
+        Write-Host "Manual submission required - see Partner Center"
+      shell: pwsh
+      env:
+        AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+        AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+        AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+        STORE_APP_ID: ${{ secrets.STORE_APP_ID }}

@@ -336,6 +336,7 @@ jobs:
         try {
           # Update submission with package
           # NOTE: Must include -UpdateAppProperties to apply applicationCategory from JSON
+          # NOTE: Use -ReplacePackages when providing -PackagePath directly (not -AddPackages)
           $submission = Update-ApplicationSubmission `
             -AppId $appId `
             -SubmissionId $submissionId `
@@ -346,7 +347,7 @@ jobs:
             -UpdatePublishModeAndVisibility `
             -UpdatePricingAndAvailability `
             -UpdateNotesForCertification `
-            -AddPackages
+            -ReplacePackages
 
           Write-Host "Committing submission..."
           Complete-ApplicationSubmission -AppId $appId -SubmissionId $submission.id

@@ -1,0 +1,121 @@
+name: Download Store Metadata
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  download-metadata:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install StoreBroker PowerShell module
+      run: |
+        Install-Module -Name StoreBroker -Force -Scope CurrentUser
+        Import-Module StoreBroker
+      shell: pwsh
+
+    - name: Download current submission metadata
+      run: |
+        # Authenticate with Azure AD
+        $clientId = "${{ secrets.AZURE_CLIENT_ID }}"
+        $clientSecret = "${{ secrets.AZURE_CLIENT_SECRET }}"
+        $tenantId = "${{ secrets.AZURE_TENANT_ID }}"
+        $appId = "${{ secrets.STORE_APP_ID }}"
+
+        Write-Host "Authenticating with Azure AD..."
+        $securePassword = ConvertTo-SecureString $clientSecret -AsPlainText -Force
+        $credential = New-Object System.Management.Automation.PSCredential($clientId, $securePassword)
+
+        Set-StoreBrokerAuthentication -TenantId $tenantId -Credential $credential
+
+        Write-Host "Getting current app information..."
+        $app = Get-Application -AppId $appId
+
+        Write-Host "App Name: $($app.primaryName)"
+        Write-Host "App ID: $($app.id)"
+
+        # Try to get pending submission first, then last published
+        $submission = $null
+        $submissionType = ""
+
+        if ($app.pendingApplicationSubmission) {
+            Write-Host "Found pending submission..."
+            $submissionId = $app.pendingApplicationSubmission.id
+            $submission = Get-ApplicationSubmission -AppId $appId -SubmissionId $submissionId
+            $submissionType = "pending"
+        } elseif ($app.lastPublishedApplicationSubmission) {
+            Write-Host "Found last published submission..."
+            $submissionId = $app.lastPublishedApplicationSubmission.id
+            $submission = Get-ApplicationSubmission -AppId $appId -SubmissionId $submissionId
+            $submissionType = "published"
+        }
+
+        if ($submission) {
+            Write-Host "Downloaded $submissionType submission (ID: $submissionId)"
+
+            # Save full submission data
+            $submission | ConvertTo-Json -Depth 10 | Out-File "downloaded-submission-full.json" -Encoding utf8
+
+            # Create a clean version for store-submission.json
+            $cleanSubmission = @{
+                applicationCategory = $submission.applicationCategory
+                pricing = $submission.pricing
+                visibility = $submission.visibility
+                targetPublishMode = $submission.targetPublishMode
+                targetPublishDate = $submission.targetPublishDate
+                listings = $submission.listings
+                hardwarePreferences = $submission.hardwarePreferences
+                automaticBackupEnabled = $submission.automaticBackupEnabled
+                canInstallOnRemovableMedia = $submission.canInstallOnRemovableMedia
+                isGameDvrEnabled = $submission.isGameDvrEnabled
+                gamingOptions = $submission.gamingOptions
+                hasExternalInAppProducts = $submission.hasExternalInAppProducts
+                meetAccessibilityGuidelines = $submission.meetAccessibilityGuidelines
+                notesForCertification = $submission.notesForCertification
+                enterpriseLicensing = $submission.enterpriseLicensing
+                allowMicrosoftDecideAppAvailabilityToFutureDeviceFamilies = $submission.allowMicrosoftDecideAppAvailabilityToFutureDeviceFamilies
+                allowTargetFutureDeviceFamilies = $submission.allowTargetFutureDeviceFamilies
+                trailers = $submission.trailers
+            }
+
+            $cleanSubmission | ConvertTo-Json -Depth 10 | Out-File "downloaded-submission-clean.json" -Encoding utf8
+
+            Write-Host ""
+            Write-Host "=== SUBMISSION DETAILS ==="
+            Write-Host "Category: $($submission.applicationCategory)"
+            Write-Host "Price: $($submission.pricing.priceId)"
+            Write-Host "Visibility: $($submission.visibility)"
+            Write-Host "Publish Mode: $($submission.targetPublishMode)"
+            Write-Host ""
+            Write-Host "Listings:"
+            foreach ($locale in $submission.listings.PSObject.Properties.Name) {
+                $listing = $submission.listings.$locale.baseListing
+                Write-Host "  Language: $locale"
+                Write-Host "    Title: $($listing.title)"
+                Write-Host "    Description: $($listing.description.Substring(0, [Math]::Min(100, $listing.description.Length)))..."
+                Write-Host "    Keywords: $($listing.keywords -join ', ')"
+            }
+        } else {
+            Write-Host "No submission found. Downloading app info only..."
+            $app | ConvertTo-Json -Depth 10 | Out-File "downloaded-app-info.json" -Encoding utf8
+        }
+      shell: pwsh
+      env:
+        AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+        AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+        AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+        STORE_APP_ID: ${{ secrets.STORE_APP_ID }}
+
+    - name: Upload metadata artifacts
+      uses: actions/upload-artifact@v5
+      with:
+        name: store-metadata
+        path: |
+          downloaded-*.json
+        retention-days: 7

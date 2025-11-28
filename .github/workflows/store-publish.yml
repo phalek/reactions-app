@@ -315,11 +315,16 @@ jobs:
             minimumSystemRam = "None"
           }
 
-          # Ensure applicationPackages is an array
-          if (-not $submissionData.applicationPackages) {
-            $submissionData.applicationPackages = @()
+          # Ensure applicationPackages property exists (PSCustomObject requires Add-Member for new properties)
+          if (-not (Get-Member -InputObject $submissionData -Name "applicationPackages" -MemberType Properties)) {
+            $submissionData | Add-Member -MemberType NoteProperty -Name "applicationPackages" -Value @()
           }
-          $submissionData.applicationPackages += $packageInfo
+
+          # Add package to array (need to recreate array to modify PSCustomObject)
+          $packages = @($submissionData.applicationPackages)
+          $packages += $packageInfo
+          $submissionData.applicationPackages = $packages
+
           Write-Host "Added package to submission data: $($msixFile.Name)"
 
           # Save the updated submission data back to file

